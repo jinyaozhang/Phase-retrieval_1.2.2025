@@ -2,16 +2,17 @@ import time
 import numpy as np
 import scipy.io as sio
 from proplib import propagate_as
-from utils import vizualize_results
-from opti import cost_function, gradient_descent, conjugate_gradient
+from utils import vizualize_results_1
+from opti import cost_function, gradient_descent, conjugate_gradient, gradient_descent_adam
 import tensorflow as tf
 
 if __name__ == '__main__':
 
     # Load the input data
-    d = input("(Sampling data:S / Experimental data:E) :")
+    d = input("(Sampling data: S / Experimental data: E / Resolution test: R) :")
     if d == 'S':
-        s = input("Please choose algorithm,input A or B (Gradient Descent:A,Conjugate descent:B):")
+        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
+                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
 
         wavelength = 0.561  # wavelength
         n0 = 1  # Refractive index of air
@@ -43,8 +44,9 @@ if __name__ == '__main__':
         i2 = amp_2**2
         phase1 = np.angle(u1)  # The true phase information of the light field u1 is extracted
         phase0 = np.angle(u_obj)
-    else:
-        s = input("Please choose algorithm,input A or B (Gradient Descent:A,Conjugate Gradient:B):")
+    elif d == 'E':
+        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
+                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
 
         wavelength = 0.4050  # wavelength
         n0 = 1  # Refractive index of air
@@ -61,8 +63,30 @@ if __name__ == '__main__':
 
         i = data['OH']
 
-        amp_1 = i[:, :, 0]
-        amp_2 = i[:, :, 5]
+        amp_1 = np.sqrt(i[:, :, 0])
+        amp_2 = np.sqrt(i[:, :, 5])
+        phase1 = np.angle(amp_1)
+    else:
+        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
+                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
+
+        wavelength = 0.5610  # wavelength
+        n0 = 1  # Refractive index of air
+        sampling = np.array([2.4, 2.4])  # The physical distance between each pixel of the camera
+        z_vec = np.array([3557.8, 11780])  # The distance between the two samples and the camera
+        img_size = [3672, 4500]
+        M = img_size[0]
+        N = img_size[1]
+
+        filename = "HPB_usaf_Phs_gruby.mat"
+        if not filename:
+            raise Exception
+        data = sio.loadmat(filename)  # load this file into dictionary (English please!)
+
+        i = data['OH']
+
+        amp_1 = np.sqrt(i[:, :, 0])
+        amp_2 = np.sqrt(i[:, :, 4])
         phase1 = np.angle(amp_1)
 
     # Estimate the phase information
@@ -70,14 +94,19 @@ if __name__ == '__main__':
     start_time = time.time()
     phase1_est = np.zeros_like(phase1)  # Set the initial phase value to facilitate gradient descent optimization
     if s == "A":
-        iters = 5000
-        alpha = 1
+        iters = 80
+        alpha = 572
         phase1_est, amp2_est, costs, phase_err = gradient_descent(alpha, iters, phase1_est, amp_1, amp_2, M, N, z_vec,
-                                                                  wavelength, n0, sampling, 0)
+                                                                  wavelength, n0, sampling, phase1)
+
+    elif s == "B":
+        iters = 80
+        phase1_est, amp2_est, costs, phase_err = gradient_descent_adam(1, iters, phase1_est, amp_1, amp_2,
+                                                                       M, N, z_vec, wavelength, n0, sampling, 0)
 
     else:
-        iters = 2000
-        alpha = 18.2
+        iters = 80
+        alpha = 32
         phase1_est, amp2_est, costs, phase_err = conjugate_gradient(alpha, iters, phase1_est, amp_1, amp_2, M, N, z_vec,
                                                                     wavelength, n0, sampling, phase1)
 
@@ -90,6 +119,6 @@ if __name__ == '__main__':
     u_1 = amp_1 * np.exp(1j * phase1_est)
     u_0 = propagate_as(u_1, -z_vec[0], wavelength, n0, sampling)
     i0 = np.abs(u_0) ** 2
-    ph0_est = np.angle(u_0)
+    ph0_est = np.angle(u_0/np.mean(u_0))
 
-    vizualize_results(iters, costs, ph0_est)
+    vizualize_results_1(iters, costs, ph0_est)
