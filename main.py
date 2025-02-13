@@ -2,7 +2,7 @@ import time
 import numpy as np
 import scipy.io as sio
 from proplib import propagate_as
-from utils import vizualize_results_1
+from utils import vizualize_results_1, vizualize_results_2
 from opti import cost_function, gradient_descent, conjugate_gradient, gradient_descent_adam
 import tensorflow as tf
 
@@ -10,9 +10,9 @@ if __name__ == '__main__':
 
     # Load the input data
     d = input("(Sampling data: S / Experimental data: E / Resolution test: R) :")
+    s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
+              "Gradient Descent with Adam: B,Conjugate Descent: C):")
     if d == 'S':
-        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
-                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
 
         wavelength = 0.561  # wavelength
         n0 = 1  # Refractive index of air
@@ -45,8 +45,7 @@ if __name__ == '__main__':
         phase1 = np.angle(u1)  # The true phase information of the light field u1 is extracted
         phase0 = np.angle(u_obj)
     elif d == 'E':
-        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
-                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
+
 
         wavelength = 0.4050  # wavelength
         n0 = 1  # Refractive index of air
@@ -67,8 +66,7 @@ if __name__ == '__main__':
         amp_2 = np.sqrt(i[:, :, 5])
         phase1 = np.angle(amp_1)
     else:
-        s = input("Please choose algorithm,input A or B or C (Gradient Descent: A,"
-                  "Gradient Descent with Adam: B,Conjugate Descent: C):")
+
 
         wavelength = 0.5610  # wavelength
         n0 = 1  # Refractive index of air
@@ -94,19 +92,19 @@ if __name__ == '__main__':
     start_time = time.time()
     phase1_est = np.zeros_like(phase1)  # Set the initial phase value to facilitate gradient descent optimization
     if s == "A":
-        iters = 80
+        iters = 2000
         alpha = 572
         phase1_est, amp2_est, costs, phase_err = gradient_descent(alpha, iters, phase1_est, amp_1, amp_2, M, N, z_vec,
                                                                   wavelength, n0, sampling, phase1)
 
     elif s == "B":
-        iters = 80
+        iters = 500
         phase1_est, amp2_est, costs, phase_err = gradient_descent_adam(1, iters, phase1_est, amp_1, amp_2,
                                                                        M, N, z_vec, wavelength, n0, sampling, 0)
 
     else:
-        iters = 80
-        alpha = 32
+        iters = 2000
+        alpha = 18
         phase1_est, amp2_est, costs, phase_err = conjugate_gradient(alpha, iters, phase1_est, amp_1, amp_2, M, N, z_vec,
                                                                     wavelength, n0, sampling, phase1)
 
@@ -122,3 +120,4 @@ if __name__ == '__main__':
     ph0_est = np.angle(u_0/np.mean(u_0))
 
     vizualize_results_1(iters, costs, ph0_est)
+    vizualize_results_2(iters, costs, ph0_est)

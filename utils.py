@@ -44,3 +44,28 @@ def vizualize_results_1(iters, cost, i2_est):
 
     plt.tight_layout()  # 调整布局避免重叠
     plt.show()
+
+
+def vizualize_results_2(iters, cost, i2_est):
+    # 绘制 Cost 随迭代变化的图
+    fig, ax = plt.subplots()
+    ax.plot(np.arange(iters), cost)
+    ax.set(xlabel='Iters', ylabel='Cost', title='Cost along iters')
+
+    # 提取中心区域（ROI）
+    center_size_x, center_size_y = 100, 100  # 中心区域的大小
+    center_x, center_y = i2_est.shape[0] // 2+50, i2_est.shape[1] // 2-25  # 图像的中心
+    roi = i2_est[
+          center_x - center_size_x // 2:center_x + center_size_x // 2,
+          center_y - center_size_y // 2:center_y + center_size_y // 2
+          ]
+
+    # 显示中心区域的图像
+    fig1, axs = plt.subplots(figsize=(15, 8))
+    im1 = axs.imshow(roi, cmap='jet', vmin=np.min(roi), vmax=np.max(roi), interpolation='nearest', origin='lower')
+    fig1.colorbar(im1, ax=axs)
+    axs.set_title("The predicted phase at z_obj (Center Region)")
+
+    plt.tight_layout()  # 调整布局避免重叠
+    plt.show()
+

@@ -9,43 +9,35 @@ def cost_function(amp1_r, amp2_t, m_1, n_1):  # current cost formular
     return cost
 
 
-def conjugate_gradient(alpha0, max_iter, current_phase1_est, amp1, amp2, m, n, z_vec1, wavelength1, n_0, sampling,
-                      phase0, lambda_tv=1e-4, tol=1e-7):
+def conjugate_gradient(alpha0, max_iter,  current_phase1_est, amp1, amp2, m, n, z_vec1, wavelength1, n_0, sampling,
+                       phase_1=0, tol=1e-7):
+
     costs = np.zeros(max_iter)
     phase_err = np.zeros(max_iter)
-
-    # Convert input data to TensorFlow tensors
+    # Convert inputs to TensorFlow tensors
     amp1_tensor = tf.convert_to_tensor(amp1, dtype=tf.complex64)
     amp2_tensor = tf.cast(amp2, tf.float64)
     sampling = tf.convert_to_tensor(sampling, dtype=tf.complex64)
     z_diff = tf.convert_to_tensor(z_vec1[1] - z_vec1[0], dtype=tf.complex64)
 
-    # Initialize the estimated phase and residuals
+    # Initialize the estimated phase and the residual
     phase1_es = tf.Variable(current_phase1_est, dtype=tf.complex64)
     r_k = None  # Current residual
     p_k = None  # Current search direction
 
     for k in range(max_iter):
         with tf.GradientTape() as tape:
-            # Compute the hypothesized light field u1
+            # Calculate the assumed optical field u1
             u1_es = amp1_tensor * tf.exp(tf.complex(0.0, tf.cast(phase1_es, tf.float32)))
-            # Calculate the estimated light field u2 using the propagation function
+            # Use the propagation function to compute the estimated optical field u2
             u2_es = propagate_as_tf(u1_es, z_diff, wavelength1, n_0, sampling)
-            amp2_es = tf.cast(tf.abs(u2_es), tf.float64)  # Compute the amplitude of the estimated field u2
-
-            # Loss function including TV regularization
-            cost = tf.sqrt(tf.reduce_sum(tf.square(amp2_es - amp2_tensor)))  # Data consistency term
-
-            # Total Variation (TV) regularization
-            phase_real = tf.math.real(phase1_es)
-            tv_term = tf.reduce_sum(tf.abs(phase_real[:, :-1] - phase_real[:, 1:])) + \
-                      tf.reduce_sum(tf.abs(phase_real[:-1, :] - phase_real[1:, :]))
-            cost += lambda_tv * tf.cast(tv_term, tf.float64)  # Ensure tv_term is cast to float64
+            amp2_es = tf.cast(tf.abs(u2_es), tf.float64) # Calculate the amplitude of the estimated optical field u2
+            cost = tf.sqrt(tf.reduce_sum(tf.square(amp2_es - amp2_tensor))) # Loss function
 
         # Compute the gradient
         grad = tape.gradient(cost, phase1_es)
 
-        # Initialize residuals and search direction
+        # Initialize the residual and search direction
         if k == 0:
             r_k = grad
             p_k = -r_k
@@ -61,19 +53,17 @@ def conjugate_gradient(alpha0, max_iter, current_phase1_est, amp1, amp2, m, n, z
 
         # Update the phase estimate phase1_es
         phase1_es.assign_add(alpha0 * alpha_k * p_k)
-
-        costs[k] = cost.numpy()
-        phase_err[k] = np.sum(phase1_es.numpy() - phase0) / (m * n)
+        if k % 10 == 0:
+            print(f"Iteration {k}: Cost = {cost:.2e}")
+        costs[k] = cost
+        phase_err[k] = np.sqrt(np.sum(np.square(np.float64(phase1_es) - phase_1)) / (m * n))
 
         # Check for convergence
         if tf.sqrt(tf.reduce_sum(tf.square(tf.abs(grad)))) < tol:
-            print("Gradient magnitude is below the threshold -> Iteration stops")
+            print("Gradient value below tolerance -> Iterations terminated")
             break
-        if k % 10 == 0 or k == max_iter - 1:
-            print(f"Iteration {k}: Loss = {cost.numpy():.2e}")
 
     return phase1_es.numpy(), amp2_es.numpy(), costs, phase_err
-
 
 
 def gradient_descent(alpha, iters, phase1_est, amp1, amp2, m, n, z_vec, wave_length, n0, sampling, phase1=0):
@@ -98,7 +88,7 @@ def gradient_descent(alpha, iters, phase1_est, amp1, amp2, m, n, z_vec, wave_len
 
 def gradient_descent_step(alpha, current_phase1_est, amp1, amp2, m, n, z_vec1, wavelength1, n_0, sampling_):
     amp1_tensor = tf.convert_to_tensor(amp1, dtype=tf.complex64)  # tf
-    amp2_tensor = tf.cast(amp2, tf.float64)
+    amp2_tensor = tf.cast(amp2, tf.float32)
     sampling_ = tf.convert_to_tensor(sampling_, dtype=tf.complex64)
     z_diff = tf.convert_to_tensor(z_vec1[1] - z_vec1[0], dtype=tf.complex64)
 
